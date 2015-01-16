@@ -7,58 +7,65 @@
 
 (def status (atom {}))
 
+(def gconf :conf)
+(def gmger :manager)
+
 (defn update-status [group dataid conf]
   (swap! status
          assoc-in (map keyword [group dataid]) conf))
 
 (defn register-manager
   "register manager"
-  ([group dataid]
-   (register-manager group dataid nil))
-  ([group dataid callback]
-   (let [manager (DefaultDiamondManager. group dataid
-                   (reify
-                     ManagerListener
-                     (getExecutor [this] nil)
-                     (receiveConfigInfo [this configinfo]
-                       (update-status group dataid configinfo)
-                       (callback))))]
-     (update-status group dataid
-                    (.getAvailableConfigureInfomation manager 1000))
-     manager)))
+  [group dataid]
+  (let [manager (DefaultDiamondManager. group dataid
+                  (reify
+                    ManagerListener
+                    (getExecutor [this] nil)
+                    (receiveConfigInfo [this configinfo]
+                      (update-status group dataid configinfo))))]
+    (update-status group dataid
+                   {gmger manager
+                    gconf (.getAvailableConfigureInfomation manager 1000)})))
+
+(defn get* [group dataid key]
+  (let [conf (get-in @status (map keyword [group dataid key]))]
+    conf))
 
 (defn get-conf [group dataid]
-  (let [conf (get-in @status (map keyword [group dataid]))]
-    (if (nil? conf)
-      (log/warnf "this conf maybe not exists group:%s dataid:%s" group dataid)
-      conf)))
+  (get* group dataid gconf))
+
+(defn get-manager [group dataid]
+  (get* group dataid gmger))
+
+(defn all*
+  "get key"
+  [key]
+  (reduce-kv
+   (fn [m k v]
+     (assoc m k
+            (reduce-kv
+             (fn [mm kk vv]
+               (assoc mm kk
+                      (reduce-kv
+                       (fn [mmm kkk vvv]
+                         (if (= kkk key)
+                           (assoc mmm kkk vvv)
+                           mmm))
+                       {} vv)))
+             {} v)))
+   {} @status))
 
 (defn all-conf
   "return all conf map"
   []
-  @status)
+  (all* gconf))
+
+(defn all-mger
+  "return all manager map"
+  []
+  (all* gmger))
 
 (defn print-all-conf
   "print all conf"
   []
   (pp/pprint (all-conf)))
-
-(def manager (register-manager "DEFAULT_GROUP" "test"))
-
-(def manager1 (register-manager "DEFAULT_GROUP" "test1"))
-
-(def manager2 (register-manager "DEFAULT_GROUP" "ttt"))
-
-
-(def default-conf (partial get-conf "DEFAULT_GROUP"))
-
-
-
-(defn -main []
-  (loop []
-    (Thread/sleep 5000)
-    (println "this is test conf " (default-conf "test"))
-    (println "this is test1 conf " (default-conf "test1"))
-    (println "this is ttt conf " (default-conf "ttt"))
-    (println "this is all conf " (all-conf))
-    (recur)))
