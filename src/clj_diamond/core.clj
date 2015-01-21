@@ -32,7 +32,6 @@
         fis (try (FileInputStream. "./conf.properties")
                  (catch Exception e
                    (log/info "conf not exists")))
-        _ (.load prop fis)
         default-conf {:polling-interval-time 15
                       #_:domain-name-list
                       :user-flow-control true
@@ -48,7 +47,8 @@
                   map))]
     (if-not fis
       default-conf
-      (let [updated-conf
+      (let [_ (.load prop fis)
+            updated-conf
             (-> default-conf
                 (pconf :polling-interval-time get-property-num "pollingintervaltime")
                 (pconf :user-flow-control get-property-bool "userflowcontrol")
