@@ -5,5 +5,4 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [com.taobao.diamond/diamond-client "2.0.5.4.taocode-SNAPSHOT"]
-                 [org.clojure/tools.logging "0.3.1"]]
-  :main clj-diamond.core)
+                 [org.clojure/tools.logging "0.3.1"]])

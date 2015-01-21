@@ -81,7 +81,7 @@
 
 (defn config [^DiamondConfigure conf])
 
-(defn register-manager
+(defn add-manager
   "register manager"
   [group dataid]
   (let [manager (DefaultDiamondManager. group dataid
@@ -89,7 +89,7 @@
                     ManagerListener
                     (getExecutor [this] nil)
                     (receiveConfigInfo [this configinfo]
-                      (update-status group dataid configinfo))))]
+                      (update-status group dataid {gconf configinfo}))))]
     (update-conf! manager)
     (update-status group dataid
                    {gmger manager
