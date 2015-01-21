@@ -64,9 +64,7 @@
 (defn update-conf!
   [^DiamondConfigure manager]
   (let [conf (.getDiamondConfigure manager)
-        _ (println conf)
         mapconf (update-conf*)]
-    (pp/pprint mapconf)
     (doto conf
       (.setPollingIntervalTime (:polling-interval-time mapconf))
       (.setUseFlowControl (:user-flow-control mapconf))
