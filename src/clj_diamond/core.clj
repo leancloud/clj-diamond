@@ -79,8 +79,6 @@
   (swap! status
          assoc-in (map keyword [group dataid]) conf))
 
-(defn config [^DiamondConfigure conf])
-
 (defn add-manager
   "register manager"
   [group dataid]
