@@ -3,9 +3,9 @@
             [clojure.pprint :as pp])
   (:import (java.util Properties)
            (java.io FileInputStream File)
-           (com.taobao.diamond.manager.impl DefaultDiamondManager)
-           (com.taobao.diamond.manager ManagerListener)
-           (com.taobao.diamond.client DiamondConfigure)))
+           (cn.leancloud.diamond.manager.impl DefaultDiamondManager)
+           (cn.leancloud.diamond.manager ManagerListener)
+           (cn.leancloud.diamond.client DiamondConfigure)))
 
 (def status (atom {}))
 
