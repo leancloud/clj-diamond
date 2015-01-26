@@ -31,7 +31,7 @@
   (let [prop (Properties.)
         fis (try (FileInputStream. "./conf.properties")
                  (catch Exception e
-                   (log/info "conf not exists")))
+                   (log/info "can't find conf.properties")))
         default-conf {:polling-interval-time 15
                       #_:domain-name-list
                       :user-flow-control true
