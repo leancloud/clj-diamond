@@ -1,6 +1,7 @@
 (ns clj-diamond.core
   (:require [clojure.tools.logging :as log]
-            [clojure.pprint :as pp])
+            [clojure.pprint :as pp]
+            [clojure.data.json :as json])
   (:import (java.util Properties)
            (java.io FileInputStream File)
            (cn.leancloud.diamond.manager.impl DefaultDiamondManager)
@@ -12,6 +13,7 @@
 (def gconf :conf)
 
 (def gmger :manager)
+
 
 (defn get-property
   [^Properties prop ^String key]
@@ -93,12 +95,19 @@
                    {gmger manager
                     gconf (.getAvailableConfigureInfomation manager 1000)})))
 
-(defn get* [group dataid key]
-  (let [conf (get-in @status (map keyword [group dataid key]))]
+(defn get* [group dataid gkey]
+  (let [conf (get-in @status (map keyword [group dataid gkey]))]
     conf))
 
-(defn get-conf [group dataid]
-  (get* group dataid gconf))
+(defn get-conf
+  ([group dataid]
+   (get* group dataid gconf))
+  ([group dataid conf-type]
+   (let [c (get* group dataid gconf)]
+     (case conf-type
+      :json (json/read-str c :key-fn keyword)
+      :num  (Long/valueOf c)
+      (ex-info "Un support type" {:type conf-type})))))
 
 (defn get-manager [group dataid]
   (get* group dataid gmger))
