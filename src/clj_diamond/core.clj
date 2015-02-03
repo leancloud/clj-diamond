@@ -81,9 +81,9 @@
   (swap! status
          assoc-in (map keyword [group dataid]) conf))
 
-(defn add-manager
+(defn add-manager*
   "register manager"
-  [group dataid]
+  [[group dataid]]
   (let [manager (DefaultDiamondManager. group dataid
                   (reify
                     ManagerListener
@@ -94,6 +94,14 @@
     (update-status group dataid
                    {gmger manager
                     gconf (.getAvailableConfigureInfomation manager 1000)})))
+
+(defn add-manager
+  [& meta]
+  (if (and (= 0 (mod (count meta) 2)) (not= (count meta) 0))
+    (let [tmp (partition meta)]
+      (doseq [t tmp]
+        (add-manager* t)))
+    (ex-info "Group and Id count is not even" {:count (count meta)})))
 
 (defn get* [group dataid gkey]
   (let [conf (get-in @status (map keyword [group dataid gkey]))]
