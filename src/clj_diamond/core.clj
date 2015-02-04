@@ -83,22 +83,25 @@
 
 (defn add-manager*
   "register manager"
-  [[group dataid]]
+  [[group dataid callback]]
   (let [manager (DefaultDiamondManager. group dataid
                   (reify
                     ManagerListener
                     (getExecutor [this] nil)
                     (receiveConfigInfo [this configinfo]
+                      (callback configinfo)
                       (update-status group dataid {gconf configinfo}))))]
     (update-conf! manager)
-    (update-status group dataid
-                   {gmger manager
-                    gconf (.getAvailableConfigureInfomation manager 1000)})))
+    (let [c (.getAvailableConfigureInfomation manager 1000)]
+      (callback c)
+      (update-status group dataid
+                    {gmger manager
+                     gconf c}))))
 
 (defn add-manager
   [& meta]
-  (if (and (= 0 (mod (count meta) 2)) (not= (count meta) 0))
-    (let [tmp (partition meta)]
+  (if (and (= 0 (mod (count meta) 3)) (not= (count meta) 0))
+    (let [tmp (partition 3 meta)]
       (doseq [t tmp]
         (add-manager* t)))
     (ex-info "Group and Id count is not even" {:count (count meta)})))
