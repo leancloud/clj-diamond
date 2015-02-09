@@ -157,7 +157,6 @@
 
 (defn env
   ([k default]
-   #_(println (apply get-conf @*current*))
    (if-let [e (apply get-conf @*current*)]
      (if (vector? k)
        (if-let [result (get-in e k)]
