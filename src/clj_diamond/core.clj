@@ -8,25 +8,26 @@
            (cn.leancloud.diamond.manager ManagerListener)
            (cn.leancloud.diamond.client DiamondConfigure)))
 
-(def status (atom {}))
+(def managers (atom {}))
 
 (def gconf :conf)
 
 (def gmger :manager)
 
-
 (defn get-property
-  [^Properties prop ^String key]
-  (.getProperty prop key))
-(defn get-property-bool
-  [^Properties prop ^String key]
-  (when-let [p (get-property prop key)]
-    (Boolean/valueOf p)))
+  ([prop key]
+     (get-property nil prop key))
+  ([cast-fn ^Properties prop ^String key]
+     (when-let [v (.getProperty prop key)]
+       (if cast-fn
+         (cast-fn v)
+         v))))
 
-(defn get-property-num
-  [^Properties prop ^String key]
-  (when-let [p (get-property prop key)]
-    (Integer/valueOf p)))
+(def get-property-bool
+  (partial get-property #(Boolean/valueOf %)))
+
+(def get-property-num
+  (partial get-property #(Integer/valueOf %)))
 
 (defn update-conf*
   []
@@ -35,7 +36,6 @@
                  (catch Exception e
                    (log/info "can't find conf.properties")))
         default-conf {:polling-interval-time 15
-                      #_:domain-name-list
                       :user-flow-control true
                       :once-timeout 2000
                       :recv-wait-time 10000
@@ -64,6 +64,7 @@
         updated-conf))))
 
 (defn update-conf!
+  "Configure diamond manager."
   [^DiamondConfigure manager]
   (let [conf (.getDiamondConfigure manager)
         mapconf (update-conf*)]
@@ -77,48 +78,50 @@
       (.setConfigServerPort (:config-server-port mapconf))
       (.setRetrieveDataRetryTimes (:retrieve-data-retry-times mapconf)))))
 
-(defn update-status [group dataid conf]
-  (swap! status
+(defn update-managers [group dataid conf]
+  (swap! managers
          assoc-in (map keyword [group dataid]) conf))
 
 (defn add-manager*
   "register manager"
-  [[group dataid callback]]
+  [[group dataid callback & {:keys [sync-timeout sync-cb]}]]
+  (log/infof "Adding new diamond manager %s/%s" group dataid)
   (let [manager (DefaultDiamondManager. group dataid
                   (reify
                     ManagerListener
                     (getExecutor [this] nil)
                     (receiveConfigInfo [this configinfo]
-                      (callback configinfo)
-                      (update-status group dataid {gconf configinfo}))))]
+                      (log/infof "Receiving new config info for %s/%s: %s"
+                                 group dataid configinfo)
+                      (when callback
+                        (callback configinfo))
+                      (update-managers group dataid {gconf configinfo}))))]
     (update-conf! manager)
-    (let [c (.getAvailableConfigureInfomation manager 1000)]
-      (callback c)
-      (update-status group dataid
-                    {gmger manager
-                     gconf c}))))
+    (let [c (.getAvailableConfigureInfomation manager (or sync-timeout 1000))]
+      (when (and sync-cb callback)
+        (callback c))
+      (update-managers group dataid
+                       {gmger manager
+                        gconf c}))))
 
 (defn add-manager
-  [& meta]
-  (if (and (= 0 (mod (count meta) 3)) (not= (count meta) 0))
-    (let [tmp (partition 3 meta)]
-      (doseq [t tmp]
-        (add-manager* t)))
-    (ex-info "Group and Id count is not even" {:count (count meta)})))
+  [& groups]
+  (doseq [c groups]
+    (add-manager* c)))
 
 (defn get* [group dataid gkey]
-  (let [conf (get-in @status (map keyword [group dataid gkey]))]
+  (let [conf (get-in @managers (map keyword [group dataid gkey]))]
     conf))
 
 (defn get-conf
   ([group dataid]
-   (get* group dataid gconf))
+     (get* group dataid gconf))
   ([group dataid conf-type]
-   (let [c (get* group dataid gconf)]
-     (case conf-type
-      :json (json/read-str c :key-fn keyword)
-      :num  (Long/valueOf c)
-      (ex-info "Un support type" {:type conf-type})))))
+     (let [c (get* group dataid gconf)]
+       (case conf-type
+         :json (json/read-str c :key-fn keyword)
+         :num  (Long/valueOf c)
+         (ex-info "Un support type" {:type conf-type})))))
 
 (defn get-manager [group dataid]
   (get* group dataid gmger))
@@ -139,7 +142,7 @@
                            mmm))
                        {} vv)))
              {} v)))
-   {} @status))
+   {} @managers))
 
 (defn all-conf
   "return all conf map"
