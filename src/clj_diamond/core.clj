@@ -143,31 +143,33 @@
   (yaml/parse-string s))
 
 (defn get-conf
-  [group data-id]
-  (let [mmap (get-map* group data-id)
-        conf-type (get mmap gtype)
-        c (get mmap gconf)]
-    (case conf-type
-      :clojure (read-string c)
-      :prop (pro->map c)
-      :yml (yml->map c)
-      :json (json/read-str c :key-fn keyword)
-      :string c
-      (ex-info "Un support type" {:type conf-type}))))
+  ([group data-id]
+   (let [mmap (get-map* group data-id)
+         conf-type (get mmap gtype)
+         c (get mmap gconf)]
+     (case conf-type
+       :clojure (read-string c)
+       :prop (pro->map c)
+       :yml (yml->map c)
+       :json (json/read-str c :key-fn keyword)
+       :string c
+       (ex-info "Un support type" {:type conf-type}))))
+  ([group data-id default]
+   (if-let [res (get-conf group data-id)]
+     res
+     default)))
 
 (defn env
   ([k default]
-   (if-let [e (apply get-conf @*current*)]
-     (if (vector? k)
-       (if-let [result (get-in e k)]
-         result
-         default)
-       (if-let [result (get e k)]
-         result
-         default))
+   (if-let [res (env k)]
+     res
      default))
   ([k]
-   (env k nil)))
+   (if-let [e (apply get-conf @*current*)]
+     (if (vector? k)
+       (get-in e k)
+       (get e k))
+     (ex-info "GROUP or DATA-ID error" {:info @*current*}))))
 
 (defmacro with-current [group data-id & body]
   `(binding [*current* (atom ~[group data-id])]
