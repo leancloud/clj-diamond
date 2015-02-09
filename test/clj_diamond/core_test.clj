@@ -6,17 +6,17 @@
   (testing "FIXME, I fail."
     (is (= 0 1))))
 
-(register-manager "DEFAULT_GROUP" "test")
+(add-manager "DEFAULT_GROUP" "test")
 
-(register-manager "DEFAULT_GROUP" "test1")
+(add-manager "DEFAULT_GROUP" "test1")
 
-(register-manager "DEFAULT_GROUP" "ttt")
+(add-manager "DEFAULT_GROUP" "ttt")
 
 
 (def default-conf (partial get-conf "DEFAULT_GROUP"))
 
 
-(deftest get
+(deftest gett
   (testing "test get"
     (are [x y] (= x (default-conf y))
          "test" "test"
