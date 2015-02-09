@@ -89,11 +89,10 @@
                     ManagerListener
                     (getExecutor [this] nil)
                     (receiveConfigInfo [this configinfo]
-                      (callback configinfo)
-                      (update-status group dataid {gconf configinfo}))))]
+                      (update-status group dataid {gconf configinfo})
+                      (callback configinfo))))]
     (update-conf! manager)
     (let [c (.getAvailableConfigureInfomation manager 1000)]
-      (callback c)
       (update-status group dataid
                     {gmger manager
                      gconf c}))))
@@ -116,9 +115,10 @@
   ([group dataid conf-type]
    (let [c (get* group dataid gconf)]
      (case conf-type
-      :json (json/read-str c :key-fn keyword)
-      :num  (Long/valueOf c)
-      (ex-info "Un support type" {:type conf-type})))))
+       :clojure-map (read-string c)
+       :json (json/read-str c :key-fn keyword)
+       :num  (Long/valueOf c)
+       (ex-info "Un support type" {:type conf-type})))))
 
 (defn get-manager [group dataid]
   (get* group dataid gmger))
