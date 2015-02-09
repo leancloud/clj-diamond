@@ -110,7 +110,7 @@
       (when (and (or sync-cb true) callback)
         (callback c))
       (update-managers group data-id
-                       {gtype type
+                       {gtype (or type :string)
                         gmger manager
                         gconf c}))))
 
