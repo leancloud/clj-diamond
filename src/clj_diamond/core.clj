@@ -1,14 +1,19 @@
 (ns clj-diamond.core
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :as pp]
-            [clojure.data.json :as json])
+            [clojure.data.json :as json]
+            [clj-yaml.core :as yaml])
   (:import (java.util Properties)
            (java.io FileInputStream File)
+           (java.io StringReader)
            (cn.leancloud.diamond.manager.impl DefaultDiamondManager)
            (cn.leancloud.diamond.manager ManagerListener)
            (cn.leancloud.diamond.client DiamondConfigure)))
 
 (def managers (atom {}))
+
+(def ^:dynamic *current-group* (atom nil))
+(def ^:dynamic *current-data-id* (atom nil))
 
 (def gconf :conf)
 
@@ -29,7 +34,7 @@
 (def get-property-num
   (partial get-property #(Integer/valueOf %)))
 
-(defn update-conf*
+(defn- update-conf*
   []
   (let [prop (Properties.)
         fis (try (FileInputStream. "./conf.properties")
@@ -63,7 +68,9 @@
         (.close fis)
         updated-conf))))
 
-(defn update-conf!
+
+
+(defn- update-conf!
   "Configure diamond manager."
   [^DiamondConfigure manager]
   (let [conf (.getDiamondConfigure manager)
@@ -78,55 +85,86 @@
       (.setConfigServerPort (:config-server-port mapconf))
       (.setRetrieveDataRetryTimes (:retrieve-data-retry-times mapconf)))))
 
-(defn update-managers [group dataid conf]
+(defn- update-managers [group data-id conf]
   (swap! managers
-         assoc-in (map keyword [group dataid]) conf))
+         assoc-in (map keyword [group data-id]) conf))
 
-(defn add-manager*
+(defn- add-manager*
   "register manager"
-  [[group dataid callback & {:keys [sync-timeout sync-cb]}]]
-  (log/infof "Adding new diamond manager %s/%s" group dataid)
-  (let [manager (DefaultDiamondManager. group dataid
+  [[group data-id callback & {:keys [sync-timeout sync-cb]}]]
+  (log/infof "Adding new diamond manager %s/%s" group data-id)
+  (let [manager (DefaultDiamondManager. group data-id
                   (reify
                     ManagerListener
                     (getExecutor [this] nil)
                     (receiveConfigInfo [this configinfo]
                       (log/infof "Receiving new config info for %s/%s: %s"
-                                 group dataid configinfo)
+                                 group data-id configinfo)
                       (when callback
                         (callback configinfo))
-                      (update-managers group dataid {gconf configinfo}))))]
+                      (update-managers group data-id {gconf configinfo}))))]
     (update-conf! manager)
     (let [c (.getAvailableConfigureInfomation manager (or sync-timeout 1000))]
-      (when (and sync-cb callback)
+      (when (and (or sync-cb true) callback)
         (callback c))
-      (update-managers group dataid
+      (update-managers group data-id
                        {gmger manager
                         gconf c}))))
+
+(defn single-manager
+  [[group data-id & _ :as meta]]
+  (reset! *current-group* group)
+  (reset! *current-data-id* data-id)
+  (add-manager* meta))
 
 (defn add-manager
   [& groups]
   (doseq [c groups]
     (add-manager* c)))
 
-(defn get* [group dataid gkey]
-  (let [conf (get-in @managers (map keyword [group dataid gkey]))]
+(defn- get* [group data-id gkey]
+  (let [conf (get-in @managers (map keyword [group data-id gkey]))]
     conf))
 
-(defn get-conf
-  ([group dataid]
-     (get* group dataid gconf))
-  ([group dataid conf-type]
-     (let [c (get* group dataid gconf)]
-       (case conf-type
-         :json (json/read-str c :key-fn keyword)
-         :num  (Long/valueOf c)
-         (ex-info "Un support type" {:type conf-type})))))
+(defn pro->map
+  [^String s]
+  (let [prop (Properties.)
+        sr (StringReader. s)]
+    (.load prop sr)
+    (into {} (for [[k v] prop] [(keyword k) (read-string v)]))))
 
-(defn get-manager [group dataid]
-  (get* group dataid gmger))
+(defn yml->map
+  [^String s]
+  (yaml/parse-string s))
 
-(defn all*
+(defn env
+  ([]
+   (env @*current-group* @*current-data-id*))
+  ([conf-type]
+   (env @*current-group* @*current-data-id* conf-type))
+  ([group data-id]
+   (get* group data-id gconf))
+  ([group data-id conf-type]
+   (let [c (env group data-id)]
+     (case conf-type
+       :clojure (read-string c)
+       :prop (pro->map c)
+       :yml (yml->map c)
+       :json (json/read-str c :key-fn keyword)
+       (ex-info "Un support type" {:type conf-type})))))
+
+(defmacro with-current [group data-id & body]
+  `(binding [*current-group* ~group
+             *current-data-id* ~data-id]
+     ~@body))
+
+(defn get-manager
+  ([]
+   (get-manager @*current-group* @*current-data-id*))
+  ([group data-id]
+   (get* group data-id gmger)))
+
+(defn- all*
   "get key"
   [key]
   (reduce-kv
