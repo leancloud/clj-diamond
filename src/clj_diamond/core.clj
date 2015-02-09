@@ -179,6 +179,12 @@
   ([group data-id]
    (get* group data-id gmger)))
 
+(defn get-type
+  ([]
+   (apply get-type @*current*))
+  ([group data-id]
+   (get* group data-id gtype)))
+
 (defn- all*
   "get key"
   [key]
@@ -206,6 +212,11 @@
   "return all manager map"
   []
   (all* gmger))
+
+(defn all-type
+  "return all type map"
+  []
+  (all* gtype))
 
 (defn print-all-conf
   "print all conf"
