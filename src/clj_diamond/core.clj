@@ -89,49 +89,10 @@
 
 (defn- update-managers [group data-id conf]
   (swap! managers
-         assoc-in (map keyword [group data-id]) conf))
+         assoc-in (map keyword [group data-id]) conf)
+  conf)
 
-(defn- add-manager*
-  "register manager"
-  [[group data-id type callback & {:keys [sync-timeout sync-cb]}]]
-  (log/infof "Adding new diamond manager %s/%s" group data-id)
-  (let [manager (DefaultDiamondManager. group data-id
-                  (reify
-                    ManagerListener
-                    (getExecutor [this] nil)
-                    (receiveConfigInfo [this configinfo]
-                      (log/infof "Receiving new config info for %s/%s: %s"
-                                 group data-id configinfo)
-                      (when callback
-                        (callback configinfo))
-                      (update-managers group data-id {gconf configinfo}))))]
-    (update-conf! manager)
-    (let [c (.getAvailableConfigureInfomation manager (or sync-timeout 1000))]
-      (when (and (or sync-cb true) callback)
-        (callback c))
-      (update-managers group data-id
-                       {gtype (or type :string)
-                        gmger manager
-                        gconf c}))))
-
-(defn single-manager
-  [[group data-id & _ :as meta]]
-  (reset! *current* [group data-id])
-  (add-manager* meta))
-
-(defn add-manager
-  [& groups]
-  (doseq [c groups]
-    (add-manager* c)))
-
-(defn get-map*
-  [group data-id]
-  (get-in @managers (map keyword [group data-id])))
-
-(defn- get* [group data-id gkey]
-  (get gkey (get-map* group data-id)))
-
-(defn pro->map
+(defn prop->map
   [^String s]
   (let [prop (Properties.)
         sr (StringReader. s)]
@@ -142,22 +103,68 @@
   [^String s]
   (yaml/parse-string s))
 
+(defn parse->map
+  [s k]
+  (case k
+    :clojure (read-string s)
+    :prop (prop->map s)
+    :yml (yml->map s)
+    :josn (json/read-str s :key-fn keyword)
+    :string s
+    s))
+
+(defn add-manager*
+  "register manager"
+  [[group data-id type callback & {:keys [sync-timeout sync-cb]}]]
+  (log/infof "Adding new diamond manager %s/%s" group data-id)
+  (let [manager (DefaultDiamondManager. group data-id
+                  (reify
+                    ManagerListener
+                    (getExecutor [this] nil)
+                    (receiveConfigInfo [this configinfo]
+                      (log/infof "Receiving new config info for %s/%s: %s"
+                                 group data-id configinfo)
+                      (let [config-map (parse->map configinfo type)]
+                        (update-managers group data-id {gconf config-map})
+                        (when (and (= (:group @*current*) group)
+                                   (= (:data-id @*current* data-id)))
+                          (swap! *current* assoc gconf config-map)))
+                      (when callback
+                        (callback configinfo)))))]
+    (update-conf! manager)
+    (let [c (.getAvailableConfigureInfomation manager (or sync-timeout 1000))]
+      (when (and (or sync-cb true) callback)
+        (callback c))
+      (assoc
+       (update-managers group data-id
+                        {gtype (or type :string)
+                         gmger manager
+                         gconf (parse->map c type)})
+       :group group
+       :data-id data-id))))
+
+(defn set-single-manager!
+  [manager-map]
+  (reset! *current* manager-map))
+
+(defn add-manager
+  [& groups]
+  (doseq [c groups]
+    (add-manager* c)))
+
+(defn- get-map*
+  [group data-id]
+  (get-in @managers (map keyword [group data-id])))
+
 (defn get-conf
   ([group data-id]
-   (let [mmap (get-map* group data-id)
-         conf-type (get mmap gtype)
-         c (get mmap gconf)]
-     (case conf-type
-       :clojure (read-string c)
-       :prop (pro->map c)
-       :yml (yml->map c)
-       :json (json/read-str c :key-fn keyword)
-       :string c
-       (ex-info "Un support type" {:type conf-type}))))
+   (get-conf (get-map* group data-id)))
   ([group data-id default]
    (if-let [res (get-conf group data-id)]
      res
-     default)))
+     default))
+  ([mmap]
+   (gconf mmap)))
 
 (defn env
   ([k default]
@@ -165,27 +172,36 @@
      res
      default))
   ([k]
-   (if-let [e (apply get-conf @*current*)]
+   (let [e (env)]
      (if (vector? k)
        (get-in e k)
-       (get e k))
-     (ex-info "GROUP or DATA-ID error" {:info @*current*}))))
+       (get e k))))
+  ([]
+   (if-let [e (get-conf @*current*)]
+     e
+     (ex-info "GROUP or DATA-ID error" {:info
+                                        [(:group @*current*)
+                                         (:data-id @*current*)]}))))
 
-(defmacro with-current [group data-id & body]
-  `(binding [*current* (atom ~[group data-id])]
+(defmacro with-current [current & body]
+  `(binding [*current* (atom ~current)]
      ~@body))
 
 (defn get-manager
   ([]
-   (apply get-manager @*current*))
+   (gmger @*current*))
+  ([mmap]
+   (gmger mmap))
   ([group data-id]
-   (get* group data-id gmger)))
+   (get-manager (get-map* group data-id))))
 
 (defn get-type
   ([]
-   (apply get-type @*current*))
+   (gtype @*current*))
+  ([mmap]
+   (gtype mmap))
   ([group data-id]
-   (get* group data-id gtype)))
+   (get-type (get-map* group data-id))))
 
 (defn- all*
   "get key"
