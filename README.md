@@ -1,8 +1,13 @@
 # clj-diamond
 
-对淘宝的 `dimond` 进行 clojure 封装
+对淘宝的 `dimond-client` 进行 clojure 封装
 
 ## Usage
+
+- 添加依赖
+```clojure
+    [clj-diamond/clj-diamond "0.1.3-SNAPSHOT"]
+```
 
 - 注册你的配置
 ```clojure
