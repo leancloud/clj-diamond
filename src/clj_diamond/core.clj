@@ -128,9 +128,9 @@
                         (update-managers group data-id {gconf config-map})
                         (when (and (= (:group @*current*) group)
                                    (= (:data-id @*current* data-id)))
-                          (swap! *current* assoc gconf config-map)))
-                      (when callback
-                        (callback config-map)))))]
+                          (swap! *current* assoc gconf config-map))
+                        (when callback
+                          (callback config-map))))))]
     (update-conf! manager)
     (let [c (.getAvailableConfigureInfomation manager (or sync-timeout 1000))
           config-map (parse->map c type)]
@@ -169,14 +169,12 @@
 
 (defn env
   ([k default]
-   (if-let [res (env k)]
-     res
-     default))
-  ([k]
    (let [e (env)]
      (if (vector? k)
-       (get-in e k)
-       (get e k))))
+       (get-in e k default)
+       (get e k default))))
+  ([k]
+   (env k nil))
   ([]
    (if-let [e (get-conf @*current*)]
      e
