@@ -133,7 +133,7 @@
                         (callback configinfo)))))]
     (update-conf! manager)
     (let [c (.getAvailableConfigureInfomation manager (or sync-timeout 1000))]
-      (when (and (or sync-cb true) callback)
+      (when (and sync-cb callback)
         (callback c))
       (assoc
        (update-managers group data-id
