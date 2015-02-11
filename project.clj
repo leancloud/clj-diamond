@@ -1,4 +1,4 @@
-(defproject clj-diamond "0.1.2-SNAPSHOT"
+(defproject clj-diamond "0.1.3-SNAPSHOT"
   :description "diamond client clojure wrap"
   :url "https://github.com/leancloud/clj-diamond"
   :license {:name "Eclipse Public License"
