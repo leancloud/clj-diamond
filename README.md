@@ -6,7 +6,7 @@
 
 - 添加依赖
 ```clojure
-    [clj-diamond/clj-diamond "0.1.3-SNAPSHOT"]
+    [clj-diamond "0.1.3-SNAPSHOT"]
 ```
 
 - 注册你的配置
