@@ -130,16 +130,17 @@
                                    (= (:data-id @*current* data-id)))
                           (swap! *current* assoc gconf config-map)))
                       (when callback
-                        (callback configinfo)))))]
+                        (callback config-map)))))]
     (update-conf! manager)
-    (let [c (.getAvailableConfigureInfomation manager (or sync-timeout 1000))]
+    (let [c (.getAvailableConfigureInfomation manager (or sync-timeout 1000))
+          config-map (parse->map c type)]
       (when (and sync-cb callback)
-        (callback c))
+        (callback config-map))
       (assoc
        (update-managers group data-id
                         {gtype (or type :string)
                          gmger manager
-                         gconf (parse->map c type)})
+                         gconf config-map})
        :group group
        :data-id data-id))))
 
