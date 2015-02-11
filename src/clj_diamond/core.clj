@@ -122,7 +122,7 @@
                     ManagerListener
                     (getExecutor [this] nil)
                     (receiveConfigInfo [this configinfo]
-                      (log/infof "Receiving new config info for %s/%s: %s"
+                      (log/infof "Receiving new config info for %s/%s:\n%s"
                                  group data-id configinfo)
                       (let [config-map (parse->map configinfo type)]
                         (update-managers group data-id {gconf config-map})
