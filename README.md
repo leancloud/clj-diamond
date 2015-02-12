@@ -1,6 +1,6 @@
 # clj-diamond
 
-对淘宝的 `dimond-client` 进行 clojure 封装
+对淘宝的 `diamond-client` 进行 clojure 封装
 
 ## Usage
 
